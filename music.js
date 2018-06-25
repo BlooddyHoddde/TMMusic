@@ -14,24 +14,26 @@ client.on('ready', () => {
 console.log('Logging into discord..');
 console.log(`
 Login successful.
-
 -----------------
 RoyalDev - Discord Bot
 -----------------
 ${client.user.username}
-
 Connected to:
 ${client.guilds.size} servers
 ${client.channels.size} channel
 ${client.users.size} users
-
 Prefix: ${PREFIX}
 -----------------
-
 Use this url to bring your bot to a server:
 https://discordapp.com/oauth2/authorize?client_id=${client.user.id}&scope=bot&permissions=2146958588585`);
 
 });
+
+client.on('warn', console.warn);
+
+client.on('error', console.error);
+
+client.on('ready', () => console.log('Yo this ready!'));
 
 // client.on('disconnect', () => console.log('I just disconnected, making sure you know, I will reconnect now...'));
 
@@ -80,8 +82,63 @@ client.on('message', async msg => { // eslint-disable-line
 					let index = 0;
 					const embed1 = new Discord.RichEmbed()
 			        .setDescription(`**اختار رقم المقطع** :
-${videos.map(video2 => `[**${++index} **] \`${video2.title}\``).join('\n')}`)
-					.setFooter("")
+${videos.map(video2 => `[${++index} ] \`${video2.title}\``).join('\n')}`)
+					.setFooter("XD جميع الحقوق محفوظه لدى سرفر")
+					msg.channel.sendEmbed(embed1).then(message =>{message.delete(20000)})
+					
+					// eslint-disable-next-line max-depth
+					try {
+						var response = await msg.channel.awaitMessages(msg2 => msg2.content > 0 && msg2.content < 11, {
+							maxMatches: 1,
+							time: 10000,
+							errors: ['time']
+						});
+					} catch (err) {
+						console.error(err);
+						return msg.channel.send('لم يتم تحديد العدد لتشغيل الاغنيه.');
+					}
+					const videoIndex = parseInt(response.first().content);
+					var video = await youtube.getVideoByID(videos[videoIndex - 1].id);
+				} catch (err) {
+					console.error(err);
+					return msg.channel.send(':X: لم أستطع الحصول على أية نتائج بحث.');
+				}
+			}
+			return handleVideo(video, msg, voiceChannel);
+		}
+	}else if (command === `p`) {
+		const voiceChannel = msg.member.voiceChannel;
+		if (!voiceChannel) return msg.channel.send('أنا آسف ولكن عليك أن تكون في قناة صوتية لتشغيل الموسيقى!');
+		const permissions = voiceChannel.permissionsFor(msg.client.user);
+		if (!permissions.has('CONNECT')) {
+			return msg.channel.send('لا أستطيع أن أتكلم في هذه القناة الصوتية، تأكد من أن لدي الصلاحيات الازمة !');
+		}
+		if (!permissions.has('SPEAK')) {
+			return msg.channel.send('لا أستطيع أن أتكلم في هذه القناة الصوتية، تأكد من أن لدي الصلاحيات الازمة !');
+		}
+		if (!permissions.has('EMBED_LINKS')) {
+			return msg.channel.sendMessage("**لا يوجد لدي صلاحيات `EMBED LINKS`**")
+		}
+
+		if (url.match(/^https?:\/\/(www.youtube.com|youtube.com)\/playlist(.*)$/)) {
+			const playlist = await youtube.getPlaylist(url);
+			const videos = await playlist.getVideos();
+			for (const video of Object.values(videos)) {
+				const video2 = await youtube.getVideoByID(video.id); // eslint-disable-line no-await-in-loop
+				await handleVideo(video2, msg, voiceChannel, true); // eslint-disable-line no-await-in-loop
+			}
+			return msg.channel.send(` **${playlist.title}** تم اضافة القائمه!`);
+		} else {
+			try {
+				var video = await youtube.getVideo(url);
+			} catch (error) {
+				try {
+					var videos = await youtube.searchVideos(searchString, 5);
+					let index = 0;
+					const embed1 = new Discord.RichEmbed()
+			        .setDescription(`**اختار رقم المقطع** :
+${videos.map(video2 => `[${++index} ] \`${video2.title}\``).join('\n')}`)
+					.setFooter("XD جميع الحقوق محفوظه لدى سرفر")
 					msg.channel.sendEmbed(embed1).then(message =>{message.delete(20000)})
 					
 					// eslint-disable-next-line max-depth
@@ -105,6 +162,11 @@ ${videos.map(video2 => `[**${++index} **] \`${video2.title}\``).join('\n')}`)
 			return handleVideo(video, msg, voiceChannel);
 		}
 	} else if (command === `s`) {
+		if (!msg.member.voiceChannel) return msg.channel.send('You are not in a voice channel!');
+		if (!serverQueue) return msg.channel.send('There is nothing playing that I could skip for you.');
+		serverQueue.connection.dispatcher.end('Skip command has been used!');
+		return undefined;
+	} else if (command === `skip`) {
 		if (!msg.member.voiceChannel) return msg.channel.send('You are not in a voice channel!');
 		if (!serverQueue) return msg.channel.send('There is nothing playing that I could skip for you.');
 		serverQueue.connection.dispatcher.end('Skip command has been used!');
@@ -133,9 +195,7 @@ ${videos.map(video2 => `[**${++index} **] \`${video2.title}\``).join('\n')}`)
 		let index = 0;
 		const embedqu = new Discord.RichEmbed()
 	.setDescription(`**Songs Queue**
-
 ${serverQueue.songs.map(song => `**${++index} -** ${song.title}`).join('\n')}
-
 **الان يتم تشغيل** ${serverQueue.songs[0].title}`)
 		return msg.channel.sendEmbed(embedqu);
 	} else if (command === `pause`) {
@@ -222,28 +282,50 @@ function play(guild, song) {
 }
 
 client.on('message', message => {
-  if (!message.content.startsWith(PREFIX)) return;
-  var args = message.content.split(' ').slice(1);
-  var argresult = args.join(' ');
-  if (message.author.id !== "369974738916868120") return;
+var prefix = "!";
+
+if (!message.content.startsWith(prefix)) return;
+var args = message.content.split(' ').slice(1);
+var argresult = args.join(' ');
+if (message.author.id == 410835593451405312) return;
+if (message.content.startsWith(prefix + 'playing')) {
+if (message.author.id !== '299899582211555329') return message.reply('** هذا الأمر فقط لصاحب البوت و شكراًً **')
+client.user.setGame(argresult);
+ message.channel.sendMessage(`**${argresult}** : تم تغيير الحالة`)
+} else
 
 
+if (message.content.startsWith(prefix + 'streem')) {
+if (message.author.id !== '299899582211555329') return message.reply('** هذا الأمر فقط لصاحب البوت و شكراًً **')
+client.user.setGame(argresult, "http://twitch.tv/y04zgamer");
+ message.channel.sendMessage(`**${argresult}** :تم تغيير الحالة الى ستريمنج`)
+} else
 
-if (message.content.startsWith(PREFIX + 'setstream')) {
-  client.user.setGame(argresult, "https://www.twitch.tv/darkknite55");
-	 console.log('test' + argresult);
-    message.channel.sendMessage(`Streaming: **${argresult}`)
-} 
+if (message.content.startsWith(prefix + 'setname')) {
+if (message.author.id !== '299899582211555329') return message.reply('** هذا الأمر فقط لصاحب البوت و شكراًً **')
+client.user.setUsername(argresult).the
+message.channel.sendMessage(`**${argresult}** : تم تغير الأسم`)
+return message.reply("**لا تستطيع تغير الأسم الا بعد ساعتين**");
+} else
+ 
+if (message.content.startsWith(prefix + 'setavatar')) {
+if (message.author.id !== '299899582211555329') return message.reply('** هذا الأمر فقط لصاحب البوت و شكراًً **')
+client.user.setAvatar(argresult);
+ message.channel.sendMessage(`**${argresult}** : تم تغير صورة البوت`);
+} else
 
-if (message.content.startsWith(PREFIX + 'setname')) {
-  client.user.setUsername(argresult).then
-	  message.channel.sendMessage(`Username Changed To **${argresult}**`)
-  return message.reply("You Can change the username 2 times per hour");
-} 
-if (message.content.startsWith(PREFIX + 'setavatar')) {
-  client.user.setAvatar(argresult);
-   message.channel.sendMessage(`Avatar Changed Successfully To **${argresult}**`);
+
+if (message.content.startsWith(prefix + 'watching')) {
+if (message.author.id !== '299899582211555329') return message.reply('** هذا الأمر فقط لصاحب البوت و شكراًً **')
+ client.user.setActivity(argresult, {type : 'watching'});
+message.channel.sendMessage(`**${argresult}** : تم تغيير الووتشينق الى`)
 }
+if (message.content.startsWith(prefix + 'listening')) {
+if (message.author.id !== '299899582211555329') return message.reply('** هذا الأمر فقط لصاحب البوت و شكراًً **')
+client.user.setActivity(argresult, {type : 'listening'});
+message.channel.sendMessage(`**${argresult}**: تم تغير الاستماع الي`)
+}
+
 });
 
 
