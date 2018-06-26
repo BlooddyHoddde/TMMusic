@@ -25,8 +25,7 @@ Music.start(client, {
   botAdmins: ["294155759741304833"],  // List of ID's for admins (bypasses all permissions).
   advancedMode: {                     // The advancedMode object.
     enabled: true,                    // Master toggle for advancedMode.
-    multiPrefix: true,                // multiple prefix toggle.
-    serverPrefixs: mapObj             // Map object for server prefixs.
+    multiPrefix: false,                // multiple prefix toggle.
   }
 });
 
