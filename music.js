@@ -1,7 +1,6 @@
 const Discord = require('discord.js');
 const Music = require('discord.js-musicbot-addon');
 const client = new Discord.Client(); //replace client with what you want your Discord Client to be.
-const settings = require('./settings.json'); //Load the token, prefix, and other info from a JSON file.
 
 client.on('ready', () => {
     console.log(`[Start] ${new Date()}`);
